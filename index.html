@@ -1,0 +1,373 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Barcode & QR Generator</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 30px 16px;
+      font-family: Arial, sans-serif;
+      background: #f4f6fb;
+      color: #172033;
+    }
+
+    .container {
+      max-width: 850px;
+      margin: auto;
+    }
+
+    header {
+      margin-bottom: 24px;
+    }
+
+    header p {
+      color: #667085;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 8px 24px #1720330a;
+      min-width: 0;
+    }
+
+    .history-card {
+      grid-column: 1 / -1;
+    }
+
+    input {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #d0d5dd;
+      border-radius: 10px;
+      font-size: 15px;
+      margin: 8px 0;
+    }
+
+    button {
+      padding: 11px 14px;
+      border: 0;
+      border-radius: 10px;
+      margin: 6px 4px 0 0;
+      cursor: pointer;
+      font-weight: bold;
+      background: #4f46e5;
+      color: white;
+    }
+
+    button:hover {
+      background: #4338ca;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    .secondary {
+      background: #eef2ff;
+      color: #3730a3;
+    }
+
+    .secondary:hover {
+      background: #e0e7ff;
+    }
+
+    #message {
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+
+    .success {
+      color: #067647;
+    }
+
+    .error {
+      color: #b42318;
+    }
+
+    .image-box {
+      min-height: 220px;
+      margin-top: 14px;
+      padding: 16px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fafbff;
+      overflow: hidden;
+    }
+
+    #result {
+      display: none;
+      max-width: 100%;
+      max-height: 350px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+
+    #placeholder {
+      color: #667085;
+      text-align: center;
+    }
+
+    #history {
+      padding-left: 22px;
+    }
+
+    #history li {
+      padding: 10px 0;
+      border-bottom: 1px solid #eee;
+      overflow-wrap: anywhere;
+      font-size: 14px;
+    }
+
+    .muted {
+      color: #667085;
+      font-size: 13px;
+    }
+
+    @media (max-width: 650px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .history-card {
+        grid-column: auto;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <header>
+      <h1>Barcode & QR Generator</h1>
+      <p>Generate PNG images and view your recent generation history.</p>
+    </header>
+
+    <div class="layout">
+      <section class="card">
+        <h2>Generate Code</h2>
+        <p class="muted">Enter text or a URL (maximum 200 characters).</p>
+
+        <label for="text">Text or URL</label>
+        <input
+          id="text"
+          type="text"
+          maxlength="200"
+          placeholder="PRODUCT-1001 or https://example.com"
+        >
+
+        <button id="barcodeBtn" type="button">Generate Barcode</button>
+        <button id="qrBtn" class="secondary" type="button">Generate QR</button>
+
+        <p id="message" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
+        <h2>Generated Image</h2>
+
+        <div class="image-box">
+          <p id="placeholder">Your generated image will appear here.</p>
+          <img id="result" alt="Generated barcode or QR code">
+        </div>
+
+        <button id="downloadBtn" class="secondary" hidden type="button">
+          Download PNG
+        </button>
+      </section>
+
+      <section class="card history-card">
+        <h2>Generation History</h2>
+        <p class="muted">Latest 10 successful generations.</p>
+        <button id="refreshBtn" class="secondary" type="button">
+          Refresh History
+        </button>
+        <ul id="history">
+          <li>Loading history...</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const API = "http://localhost:3000/api";
+
+    const textInput = document.getElementById("text");
+    const message = document.getElementById("message");
+    const result = document.getElementById("result");
+    const placeholder = document.getElementById("placeholder");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const historyList = document.getElementById("history");
+    const barcodeBtn = document.getElementById("barcodeBtn");
+    const qrBtn = document.getElementById("qrBtn");
+
+    let currentImageUrl = null;
+
+    function showMessage(text, type = "") {
+      message.textContent = text;
+      message.className = type;
+    }
+
+    async function generateImage(endpoint, filename) {
+      const text = textInput.value;
+
+      if (!text.trim()) {
+        showMessage("Please enter some text first.", "error");
+        textInput.focus();
+        return;
+      }
+
+      barcodeBtn.disabled = true;
+      qrBtn.disabled = true;
+      showMessage("Generating image...");
+
+      try {
+        const response = await fetch(`${API}/${endpoint}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ text })
+        });
+
+        if (!response.ok) {
+          let errorMessage = "Generation failed.";
+
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch {}
+
+          throw new Error(errorMessage);
+        }
+
+        const blob = await response.blob();
+        const newImageUrl = URL.createObjectURL(blob);
+
+        // Keep the generated image URL alive.
+        const oldImageUrl = currentImageUrl;
+        currentImageUrl = newImageUrl;
+
+        result.onload = () => {
+          if (oldImageUrl) {
+            URL.revokeObjectURL(oldImageUrl);
+          }
+        };
+
+        result.onerror = () => {
+          showMessage("The image could not be displayed.", "error");
+        };
+
+        result.src = newImageUrl;
+        result.style.display = "block";
+        placeholder.hidden = true;
+
+        downloadBtn.hidden = false;
+        downloadBtn.onclick = () => {
+          const link = document.createElement("a");
+          link.href = currentImageUrl;
+          link.download = filename;
+          link.click();
+        };
+
+        showMessage("Image generated successfully!", "success");
+
+        // History failure must not affect the generated image.
+        getHistory();
+      } catch (error) {
+        showMessage(
+          error.message || "Could not connect to the backend.",
+          "error"
+        );
+      } finally {
+        barcodeBtn.disabled = false;
+        qrBtn.disabled = false;
+      }
+    }
+
+    async function getHistory() {
+      try {
+        const response = await fetch(`${API}/history`);
+
+        if (!response.ok) {
+          throw new Error("Could not load history.");
+        }
+
+        const data = await response.json();
+        historyList.replaceChildren();
+
+        if (data.length === 0) {
+          const li = document.createElement("li");
+          li.textContent = "No history yet. Generate your first code!";
+          historyList.appendChild(li);
+          return;
+        }
+
+        data.forEach(item => {
+          const li = document.createElement("li");
+          const date = new Date(item.created_at);
+
+          li.textContent =
+            `${item.type.toUpperCase()} — ${item.input_preview} — ` +
+            `${Number.isNaN(date.getTime()) ? item.created_at : date.toLocaleString()}`;
+
+          historyList.appendChild(li);
+        });
+      } catch (error) {
+        historyList.replaceChildren();
+
+        const li = document.createElement("li");
+        li.textContent =
+          `${error.message} Check that your backend is running on port 3000.`;
+
+        historyList.appendChild(li);
+      }
+    }
+
+    barcodeBtn.addEventListener("click", () => {
+      generateImage("barcode", "barcode.png");
+    });
+
+    qrBtn.addEventListener("click", () => {
+      generateImage("qr", "qr.png");
+    });
+
+    document.getElementById("refreshBtn").addEventListener("click", getHistory);
+
+    // Enter key generates a QR code.
+    textInput.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        generateImage("qr", "qr.png");
+      }
+    });
+
+    window.addEventListener("beforeunload", () => {
+      if (currentImageUrl) {
+        URL.revokeObjectURL(currentImageUrl);
+      }
+    });
+
+    getHistory();
+  </script>
+</body>
+</html>
