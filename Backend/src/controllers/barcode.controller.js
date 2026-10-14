@@ -20,19 +20,19 @@ export const generateBarcode = async (req, res) => {
     const png = await bwipjs.toBuffer({
       bcid: "code128",
       text,
-      scale: 3,
+      scale: 3,  
       height: 10,
       includetext: true,
     });
 
     // Save generation history in SQLite
-    const stmt = db.prepare(`
+    const barcode_history = db.prepare(`
       INSERT INTO generation_history
         (type, input_preview, created_at)
       VALUES (?, ?, ?)
     `);
 
-    stmt.run(
+    barcode_history.run(
       "barcode",
       text.slice(0, 50),
       new Date().toISOString()

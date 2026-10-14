@@ -19,13 +19,13 @@ export const generateQR = async (req, res) => {
       type: "png",
     });
 
-    const stmt = db.prepare(`
+    const qr_history = db.prepare(`
       INSERT INTO generation_history
         (type, input_preview, created_at)
       VALUES (?, ?, ?)
     `);
 
-    stmt.run(
+    qr_history.run(
       "qr",
       text.slice(0, 50),
       new Date().toISOString()

@@ -36,5 +36,5 @@ backend/
 ```
 
 # Package Installation
-install express better-sqlite3 bwip-js qrcode
+install express better-sqlite3 bwip-js qrcode 
 
