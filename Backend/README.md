@@ -38,3 +38,18 @@ backend/
 # Package Installation
 install express better-sqlite3 bwip-js qrcode 
 
+# generation flow
+
+## . QR Code Generation Flow
+1. User text ya URL enter karta hai.
+2. Backend input validate karta hai.
+3. qrcode library toBuffer() se PNG image generate karti hai.
+4. QR generation ki history SQLite mein save hoti hai.
+5. Backend image/png response client ko bhej deta hai.
+
+## #Barcode Generation Flow
+1. User product ID ya text enter karta hai.
+2. Backend input validate karta hai.
+3. bwip-js library toBuffer() se Code128 barcode PNG generate karti hai.
+4. Barcode generation ki history SQLite mein save hoti hai.
+5. Backend image/png response client ko bhej deta hai.
